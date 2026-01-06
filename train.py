@@ -1,4 +1,3 @@
-# Copyright 2025 Shruti Mishra. All rights reserved
 import numpy as np
 from tqdm import tqdm
 from typing import Optional
