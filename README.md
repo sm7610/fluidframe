@@ -1,13 +1,13 @@
 # FluidFrame: A reinforcement learning agent that navigates a cellular flow
 This repository contains Python code for training a reinforcement learning agent to navigate a cellular flow. This accompanies the following publication:
-
+FluidFrame is a research framework for training and evaluating reinforcement learning agents navigating a cellular flow. It originated as companion code for the following publication:
 _Shruti Mishra, Michael Chang, Vamsi Spandan, and Shmuel M. Rubinstein, A perspective on fluid mechanical environments for challenges in reinforcement learning (2025). In Finding the Frame workshop at the Reinforcement Learning Conference._
+
+The framework is being developed beyond the original paper, with ongoing work on continuous environments.
 
 This implementation derives from the work of Colabrese et al. (2017) with the following differences:
 - The swimmer advances in the environment using a forward Euler integration scheme, versus the Runge-Kutta method in Colabrese et al. (2017).
 - The environment transitions are discretised using fixed timesteps, versus a new state being specified to the agent when the observation changes in Colabrese et al. (2017).
-
-These implementation details do not appear to change the main results (Fig. 1).
 
 ![swimmer-results](https://sm7610.github.io/assets/work/swimmer-results.png)
 
@@ -32,7 +32,7 @@ $ pytest tests/.
 ```
 
 ### Example
-The code reproducibly generates the following output:
+The code generates the following example output:
 ```
 ➜  fluidframe git:(main) ✗ OMP_NUM_THREADS=1 python main.py --use-dedalus-environment
 Using dedalus to specify flow variables ...

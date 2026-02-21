@@ -19,15 +19,7 @@ class Environment(ABC):
 
     @abstractmethod
     def _setup_simulation(self) -> None:
-        """Set up the simulation environment.
-
-        Subclasses must implement this to:
-        - Import and configure dedalus (d3)
-        - Define problem type (IVP, LBVP, NLBVP, EVP)
-        - Set up timestepper
-        - Build solver and assign to self._solver
-        - Set up CFL for adaptive timestepping
-        """
+        """Set up the simulation environment (e.g. flow field variables, solvers, interpolators)"""
         pass
 
     def step(self, action) -> tuple:

@@ -80,7 +80,7 @@ class TaylorGreenEnvironment(Environment):
         swimmer_position_old = self.swimmer_position.copy()  # for reward computation
 
         # Action: update the orientation
-        orientation_preferred = action * np.pi / 2
+        orientation_preferred = self.get_preferred_orientation(action)
         if self.alignment_timescale == 0:  # instantaneous
             self.orientation = orientation_preferred
         else:
@@ -112,6 +112,10 @@ class TaylorGreenEnvironment(Environment):
         reward = self.swimmer_position[1] - swimmer_position_old[1]
 
         return observation, reward
+
+    def get_preferred_orientation(self, action):
+        """Transforms the action into a preferred orientation."""
+        return action * np.pi / 2
 
     def _setup_simulation(self):
         pass
@@ -164,5 +168,5 @@ class TaylorGreenEnvironment(Environment):
         return observation
 
     def _get_reward(self):
-        """This is not used."""
+        """This is not used, as it is computed directly in step."""
         raise NotImplementedError
