@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from agent_qlearning import QLearningAgent
+from agents.q_learning import QLearningAgent
 
 
 def test_action():

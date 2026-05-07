@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from typing import Optional
-from agent_qlearning import QLearningAgent
+from agents.q_learning import QLearningAgent
 from environments.base import Environment
 
 
