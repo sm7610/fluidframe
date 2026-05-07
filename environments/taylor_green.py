@@ -10,6 +10,7 @@ _ALIGNMENT_TIMESCALE = 1.0
 
 # Constants for environment
 _FLOW_SPEED = 1.0
+_SIMULATION_TIMESTEP = 0.01
 _TIMESTEP = 0.01
 _DIFFUSIVITY_ROTATIONAL = 0.0001
 _DIFFUSIVITY_TRANSLATIONAL = 0.001
@@ -21,6 +22,7 @@ class TaylorGreenEnvironment(Environment):
     def __init__(
         self,
         dt: float = _TIMESTEP,
+        dt_simulation: float = _SIMULATION_TIMESTEP,
         swimmer_speed: float = _SWIMMER_SPEED,
         flow_speed: float = _FLOW_SPEED,
         alignment_timescale: float = _ALIGNMENT_TIMESCALE,
@@ -28,7 +30,20 @@ class TaylorGreenEnvironment(Environment):
         diffusivity_translational: float = _DIFFUSIVITY_TRANSLATIONAL,
         seed: Optional[int] = None,
     ):
+        """Initialise the environment.
+
+        Args:
+            dt: The environment timestep (interval between agent actions)
+            dt_simulation: The simulation timestep (interval between updates to flow variables)
+            swimmer_speed: The speed of the swimmer relative to the flow
+            flow_speed: The scale of the flow speed
+            alignment_timescale: For swimmer orientation w.r.t. preferred orientation
+            diffusivity_rotational: Scale of the rotational noise
+            diffusivity_translational: Scale of the translational noise
+            seed: Random number generator for the environment dynamics
+        """
         self.dt = dt
+        self.dt_simulation = dt_simulation
         self.swimmer_speed = swimmer_speed
         self.u0 = flow_speed
         self.alignment_timescale = alignment_timescale
@@ -36,8 +51,13 @@ class TaylorGreenEnvironment(Environment):
         self.diffusivity_translational = diffusivity_translational
         self.rng = np.random.default_rng(seed=seed)
 
-        if self.dt <= 0:
+        if self.dt_simulation <= 0:
             raise ValueError("Timesteps should be positive.")
+
+        if self.dt < self.dt_simulation:
+            raise ValueError(
+                "The environment timestep should be greater than or equal to the timestep of the simulation dynamics."
+            )
 
         if self.alignment_timescale < 0:
             raise ValueError("Alignment timescale should be non-negative.")
@@ -77,35 +97,47 @@ class TaylorGreenEnvironment(Environment):
     def step(self, action):
         """Carries out an environment step."""
 
-        swimmer_position_old = self.swimmer_position.copy()  # for reward computation
-
         # Action: update the orientation
         orientation_preferred = self.get_preferred_orientation(action)
-        if self.alignment_timescale == 0:  # instantaneous
-            self.orientation = orientation_preferred
-        else:
-            angular_velocity = (
-                (0.5 / self.alignment_timescale)
-                * np.sin(orientation_preferred - self.orientation)
-                + 0.5 * self.flow_vorticity  # based on old position
-                + np.sqrt(2 * self.diffusivity_rotational) * self.rng.standard_normal()
+
+        swimmer_position_old = self.swimmer_position.copy()  # for reward computation
+        dt_remaining = self.dt  # initialise
+
+        # Advance simulation in sub-steps until the full timestep dt is covered
+        while dt_remaining > 0:  # the simulation needs to be advanced
+            # Compute advancement timestep
+            dt_advance = self.dt_simulation
+            if dt_remaining < self.dt_simulation:
+                dt_advance = dt_remaining
+
+            # Advance simulation
+            if self.alignment_timescale == 0:  # instantaneous
+                self.orientation = orientation_preferred
+            else:
+                angular_velocity = (
+                    (0.5 / self.alignment_timescale)
+                    * np.sin(orientation_preferred - self.orientation)
+                    + 0.5 * self.flow_vorticity  # based on old position
+                    + np.sqrt(2 * self.diffusivity_rotational)
+                    * self.rng.standard_normal()
+                )
+                self.orientation += angular_velocity * dt_advance
+
+            # Update the swimming velocity
+            self.swimming_velocity = self.swimmer_speed * np.array(
+                [np.cos(self.orientation), np.sin(self.orientation)]
+            )  # velocity relative to background flow
+
+            # Update the swimmer position
+            self.swimmer_position += dt_advance * (
+                self.swimming_velocity
+                + self.flow_velocity  # based on old position
+                + np.sqrt(2 * self.diffusivity_translational)
+                * self.rng.standard_normal(2)
             )
-            self.orientation += angular_velocity * self.dt
 
-        # Update the swimming velocity
-        self.swimming_velocity = self.swimmer_speed * np.array(
-            [np.cos(self.orientation), np.sin(self.orientation)]
-        )  # velocity relative to background flow
-
-        # Update the swimmer position
-        self.swimmer_position += self.dt * (
-            self.swimming_velocity
-            + self.flow_velocity  # based on old position
-            + np.sqrt(2 * self.diffusivity_translational) * self.rng.standard_normal(2)
-        )
-
-        # Update the flow variables
-        self._update_flow_variables()
+            self._update_flow_variables()  # update the flow variables
+            dt_remaining -= dt_advance  # update remaining time
 
         # Get the observation and reward for the agent
         observation = self._get_observation()
@@ -138,7 +170,7 @@ class TaylorGreenEnvironment(Environment):
     def _get_observation(self, vorticity_threshold=1.0 / 3.0):
         """
         12-state encoder.
-        Buckets by vorticity band (neg/zero/pos) × dominant velocity axis+sign.
+        Buckets by vorticity band (neg/zero/pos) * orientation.
         Indices:
         0..3  : vorticity < -vorticity_threshold   (x+, y+, x-, y-)
         4..7  : |vorticity| <= vorticity_threshold (x+, y+, x-, y-)

@@ -7,6 +7,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from environments.taylor_green import TaylorGreenEnvironment
+from environments.taylor_green_continuous import TaylorGreenContinuousEnvironment
 
 
 def test_init():
@@ -37,6 +38,41 @@ def test_step():
     env.step(action=3)
     assert not np.allclose(env.swimmer_position, swimmer_position_old)
     assert np.allclose(env.swimming_velocity, swimming_velocity_old)
+
+
+def test_step_timestep_equivalence_taylor_green():
+    # Test logic around dt and dt_simulation
+    rng = np.random.default_rng(seed=42)
+    position_initial = np.array([rng.uniform(0, 2 * np.pi), rng.uniform(0, 2 * np.pi)])
+    orientation_initial = rng.uniform(0, 2 * np.pi)
+    action = np.array([0, 1])
+
+    env1 = TaylorGreenContinuousEnvironment(
+        dt=0.01,
+        diffusivity_rotational=0,
+        diffusivity_translational=0,
+        action_type="continuous",
+    )
+    env2 = TaylorGreenContinuousEnvironment(
+        dt=0.02,
+        diffusivity_rotational=0,
+        diffusivity_translational=0,
+        action_type="continuous",
+    )
+
+    _ = env1.reset(position=position_initial.copy(), orientation=orientation_initial)
+    _ = env2.reset(position=position_initial.copy(), orientation=orientation_initial)
+
+    # advance env1 and env2 by equivalent times
+    for _ in range(2):
+        env1.step(action)
+    env2.step(action)
+
+    assert np.allclose(env1._get_observation(), env2._get_observation())
+
+    env1.step(action)  # take another step()
+
+    assert not np.allclose(env1._get_observation(), env2._get_observation())
 
 
 def test_observation():
