@@ -4,7 +4,6 @@ from typing import Optional
 from agents.q_learning import QLearningAgent
 from environments.base import Environment
 
-
 _Q = 1000 * np.ones((12, 4))
 _EPSILON = 0.01
 _SAVE_FOLDER = "./checkpoints/"

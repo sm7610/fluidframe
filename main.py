@@ -4,7 +4,6 @@ from environments.taylor_green import TaylorGreenEnvironment
 from environments.taylor_green_dedalus import TaylorGreenDedalusEnvironment
 from train import train
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--swimmer-speed", type=float, default=0.3)

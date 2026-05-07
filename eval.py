@@ -106,8 +106,8 @@ def eval(
     )  # instantiate environment for naïve swimmer
 
     print(f"The trained policy is {policy}.")
-    total_episode_return = 0
-    total_episode_return_naive = 0
+    episode_returns = []
+    episode_returns_naive = []
     positions = np.zeros([n_steps, 2, n_episodes])
     positions_naive = np.zeros([n_steps, 2, n_episodes])
 
@@ -137,8 +137,8 @@ def eval(
             positions[i, :, episode] = env.swimmer_position
             positions_naive[i, :, episode] = env_naive.swimmer_position
 
-        total_episode_return += episode_return
-        total_episode_return_naive += episode_return_naive
+        episode_returns.append(episode_return)
+        episode_returns_naive.append(episode_return_naive)
 
         if logging:
             print(
@@ -147,13 +147,13 @@ def eval(
 
     if logging:
         print(
-            f"The mean return over {n_episodes} episodes is {total_episode_return/n_episodes}."
+            f"The mean return over {n_episodes} episodes is {np.mean(episode_returns):.2f} +/- {np.std(episode_returns):.2f}."
         )
         print(
-            f"The mean naive return over {n_episodes} episodes is {total_episode_return_naive/n_episodes}."
+            f"The mean naive return over {n_episodes} episodes is {np.mean(episode_returns_naive):.2f} +/- {np.std(episode_returns_naive):.2f}."
         )
 
-    print(f"The gain is {total_episode_return/total_episode_return_naive-1}.")
+    print(f"The gain is {np.sum(episode_returns)/np.sum(episode_returns_naive)-1}.")
 
     if make_plot:
         plot_params = {"phi": env.swimmer_speed, "psi": env.alignment_timescale}
