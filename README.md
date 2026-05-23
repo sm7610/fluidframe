@@ -1,7 +1,5 @@
 # FluidFrame: A reinforcement learning agent that navigates a cellular flow
-FluidFrame is a research framework for training and evaluating reinforcement learning agents navigating a cellular flow. It originated as companion code for the following publication:
-
-Shruti Mishra, Michael Chang, Vamsi Spandan, Shmuel M. Rubinstein, _A perspective on fluid mechanical environments for challenges in reinforcement learning (2025)_, in Finding the Frame workshop at the Reinforcement Learning Conference [[OpenReview](https://openreview.net/forum?id=2vQj4tdDkP)]. The framework is being developed beyond the original paper, with ongoing work on continuous environments.
+FluidFrame is a research framework for training and evaluating reinforcement learning agents navigating a cellular flow. The framework is being developed, with ongoing work on continuous environments.
 
 The implementation derives from the work of Colabrese et al. (2017) with the following differences:
 - The swimmer advances in the environment using a forward Euler integration scheme, versus the Runge-Kutta method in Colabrese et al. (2017).
@@ -58,6 +56,11 @@ Colabrese, S., Gustavsson, K., Celani, A. and Biferale, L., 2017. Flow navigatio
 
 Mishra, S., Chang, M., Arza, V.S. and Rubinstein, S., 2025. A perspective on fluid mechanical environments for challenges in reinforcement learning. In Finding the Frame Workshop at the Reinforcement Learning Conference.
 
-### Additional acknowledgements
+### Acknowledgements
 
 [Maxwell Svetlik](https://github.com/maxsvetlik)
+
+### Contributors ✨
+[Michael Chang](https://github.com/engichang1467)
+[Vamsi Spandan](https://github.com/nadnaps)
+
