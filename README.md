@@ -61,6 +61,5 @@ Mishra, S., Chang, M., Arza, V.S. and Rubinstein, S., 2025. A perspective on flu
 [Maxwell Svetlik](https://github.com/maxsvetlik)
 
 ### Contributors ✨
-[Michael Chang](https://github.com/engichang1467)
-[Vamsi Spandan](https://github.com/nadnaps)
+[Michael Chang](https://github.com/engichang1467) • [Vamsi Spandan](https://github.com/nadnaps)
 
