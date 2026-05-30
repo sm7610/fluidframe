@@ -1,4 +1,3 @@
-# Copyright 2026 Shruti Mishra. All rights reserved.
 from typing import Optional
 import numpy as np
 
@@ -30,7 +29,7 @@ class TaylorGreenContinuousEnvironment(TaylorGreenEnvironment):
         """Initialise the environment, with continuous observations and continuous or discrete actions.
 
         Args:
-            action_type: "discrete" ∈ {0, 1, 2, 3} or "continuous" ∈ [0, 2π]
+            action_type: "discrete" or "continuous" (two dimensional)
         """
         super().__init__(
             dt=dt,
@@ -51,7 +50,7 @@ class TaylorGreenContinuousEnvironment(TaylorGreenEnvironment):
     def _get_observation(self):
         """
         Returns:
-            np.ndarray: observation = [vorticity, orientation], both are continuous-valued.
+            np.ndarray: observation vector, all components are in [-1, 1].
         """
 
         if abs(self.u0) > _MIN_FLOW_SPEED_THRESHOLD:
@@ -60,13 +59,25 @@ class TaylorGreenContinuousEnvironment(TaylorGreenEnvironment):
             vorticity_scaled = 0
 
         orientation = np.arctan2(self.swimming_velocity[1], self.swimming_velocity[0])
-        return np.array([vorticity_scaled, orientation])
+        swimmer_position_x = self.swimmer_position[0] % (2 * np.pi)
+        swimmer_position_y = self.swimmer_position[1] % (2 * np.pi)
+        return np.array(
+            [
+                vorticity_scaled,
+                np.cos(orientation),
+                np.sin(orientation),
+                np.cos(swimmer_position_x),
+                np.sin(swimmer_position_x),
+                np.cos(swimmer_position_y),
+                np.sin(swimmer_position_y),
+            ]
+        )
 
     def get_preferred_orientation(self, action):
         """Transforms the action into a preferred swimmer orientation."""
 
         if self.action_type == "continuous":
-            orientation_preferred = action
+            orientation_preferred = np.arctan2(action[1], action[0])
         else:
             orientation_preferred = action * np.pi / 2
 
