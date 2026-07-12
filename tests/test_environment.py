@@ -1,5 +1,6 @@
 import os
 import sys
+from environments.rayleigh_benard import RayleighBenardEnvironment
 import numpy as np
 from numpy.testing import assert_almost_equal
 import pytest
@@ -15,6 +16,8 @@ def test_init():
         env = TaylorGreenEnvironment(dt=-0.1)
     with pytest.raises(ValueError):
         env = TaylorGreenEnvironment(dt=0.1, alignment_timescale=-0.1)
+    with pytest.raises(ValueError):
+        _ = RayleighBenardEnvironment(dt=-0.1)
 
 
 def test_step():
@@ -75,6 +78,20 @@ def test_step_timestep_equivalence_taylor_green():
     assert not np.allclose(env1._get_observation(), env2._get_observation())
 
 
+def test_step_rayleigh_benard():
+    stop_sim_time = 0.3
+    env = RayleighBenardEnvironment(
+        dt=0.1, stop_sim_time=stop_sim_time, perturbation_amplitude=1.0
+    )
+    env.reset()
+    env.step(action=0)
+    assert env._solver.sim_time == 0.1
+    while env._solver.sim_time < stop_sim_time:
+        env.step(action=0)
+    assert np.allclose(env._solver.sim_time, 0.3)
+    assert np.max(abs(env._b_perturbation["g"])) <= 1.0
+
+
 def test_observation():
     env = TaylorGreenEnvironment()
     if env.u0 > 1e-8:
@@ -110,7 +127,7 @@ def test_observation():
         assert 0 <= observation < 12
 
 
-def test_reward():
+def test_reward_taylor_green():
     env = TaylorGreenEnvironment(
         dt=0.01,
         swimmer_speed=0.0,
@@ -120,6 +137,16 @@ def test_reward():
     env.flow_velocity = np.array([1.0, 1.0])
     observation, reward = env.step(action=0)
     assert_almost_equal(reward, 0.01)
+
+
+def test_reward_rayleigh_benard():
+    env = RayleighBenardEnvironment(dt=10.0, stop_sim_time=20.0)
+    env.reset()
+    _, reward = env.step(action=0)
+    assert isinstance(reward, np.float64)
+    assert reward > 0
+    _, reward_new = env.step(action=0)
+    assert not np.allclose(reward_new, reward)
 
 
 def test_step_reproducibility():
@@ -132,3 +159,23 @@ def test_step_reproducibility():
         env2.step(action=1)
     assert np.allclose(env1.swimmer_position, env0.swimmer_position)
     assert not np.allclose(env2.swimmer_position, env0.swimmer_position)
+
+
+def test_episode_reproducibility():
+    env = RayleighBenardEnvironment(
+        dt=1, stop_sim_time=2
+    )  # initialise convection environment
+    Nu = []
+    Re = []
+    for _ in range(2):
+        _ = env.reset(seed=42)  # deterministic reset
+        while env._solver.sim_time < env.stop_sim_time:
+            print(f"Simulation time: {env._solver.sim_time}")
+            _, _ = env.step(action=0)
+        Nu.append(env.Nu_array[-1])
+        Re.append(env.max_Re_array[-1])
+
+    assert Re[0] > 0
+    assert env._solver.sim_time == env.stop_sim_time
+    assert np.allclose(Nu[0], Nu[1])
+    assert np.allclose(Re[0], Re[1])
