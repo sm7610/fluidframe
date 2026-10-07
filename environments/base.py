@@ -1,26 +1,36 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Optional
 
 
 class Environment(ABC):
-    def __init__(self, dt: float) -> None:
+    def __init__(self, dt: float, device: Optional[str] = None) -> None:
         """Initialise the environment.
 
         Args:
             dt: The environment timestep
+            device: Optional device identifier
         """
         self.dt = dt
+        self.device = device
         self._setup_simulation()
+
+    @abstractmethod
+    def _setup_simulation(self) -> None:
+        """Set up the simulation environment.
+
+        Subclasses must implement this to:
+        - Import and configure dedalus (d3)
+        - Define problem type (IVP, LBVP, NLBVP, EVP)
+        - Set up timestepper
+        - Build solver and assign to self._solver
+        - Set up CFL for adaptive timestepping
+        """
+        pass
 
     def reset(self):
         """Reset the environment to an initial state."""
         observation = self._get_observation()
         return observation
-
-    @abstractmethod
-    def _setup_simulation(self) -> None:
-        """Set up the simulation environment (e.g. flow field variables, solvers, interpolators)"""
-        pass
 
     def step(self, action) -> tuple:
         """Carry out an environment step.
