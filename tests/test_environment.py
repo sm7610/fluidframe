@@ -1,32 +1,41 @@
 import os
 import sys
-from environments.rayleigh_benard import RayleighBenardEnvironment
 import numpy as np
-from numpy.testing import assert_almost_equal
 import pytest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from environments.taylor_green import TaylorGreenEnvironment
 from environments.taylor_green_continuous import TaylorGreenContinuousEnvironment
+from environments.rayleigh_benard import RayleighBenardEnvironment
+from environments.stratified_shear import StratifiedShearEnvironment
+
+_STRATIFIED_SHEAR_ACTION = np.zeros(10)
 
 
 def test_init():
     with pytest.raises(ValueError):
-        env = TaylorGreenEnvironment(dt=-0.1)
-    with pytest.raises(ValueError):
-        env = TaylorGreenEnvironment(dt=0.1, alignment_timescale=-0.1)
+        _ = TaylorGreenEnvironment(dt=-0.1)
     with pytest.raises(ValueError):
         _ = RayleighBenardEnvironment(dt=-0.1)
+    with pytest.raises(ValueError):
+        _ = TaylorGreenEnvironment(dt=0.1, alignment_timescale=-0.1)
+    with pytest.raises(ValueError):
+        _ = StratifiedShearEnvironment(save_every=-1)
 
 
-def test_step():
+def test_step_taylor_green():
     env = TaylorGreenEnvironment(alignment_timescale=0)
-    assert_almost_equal(np.linalg.norm(env.swimming_velocity), env.swimmer_speed)
+    np.testing.assert_almost_equal(
+        np.linalg.norm(env.swimming_velocity), env.swimmer_speed
+    )
     env.reset()
     env.step(action=1)
     assert env.orientation == 0.5 * np.pi
-    assert_almost_equal(np.linalg.norm(env.swimming_velocity), env.swimmer_speed)
+    np.testing.assert_almost_equal(
+        np.linalg.norm(env.swimming_velocity), env.swimmer_speed
+    )
 
     env = TaylorGreenEnvironment(
         dt=100,
@@ -92,7 +101,17 @@ def test_step_rayleigh_benard():
     assert np.max(abs(env._b_perturbation["g"])) <= 1.0
 
 
-def test_observation():
+def test_step_stratified_shear():
+    env = StratifiedShearEnvironment(nx=32, nz=32)
+    env.reset()
+    env.step(action=_STRATIFIED_SHEAR_ACTION)
+    env._u.change_scales(1)
+    env.u_initial.change_scales(1)
+    u_fluctuation = env._u["g"] - env.u_initial["g"]
+    assert not np.allclose(u_fluctuation, 0)
+
+
+def test_observation_taylor_green():
     env = TaylorGreenEnvironment()
     if env.u0 > 1e-8:
         # Case 1: Strong positive vorticity, x-dominant positive velocity
@@ -126,6 +145,23 @@ def test_observation():
         assert isinstance(observation, int)
         assert 0 <= observation < 12
 
+    # Case 6: Test continuous observation
+    env = TaylorGreenContinuousEnvironment()
+    env.flow_vorticity = 1.0
+    env.swimming_velocity = np.array([2.0, 0.5])
+    observation = env._get_observation()
+    for i in range(3):
+        assert -1 <= observation[i] <= 1
+    assert np.allclose(np.linalg.norm([observation[1], observation[2]]), 1)
+
+
+def test_observation_stratified_shear():
+    env = StratifiedShearEnvironment(nx=32, nz=32)
+    observation = env.reset()
+    assert observation.shape == (3, env._nx, env._nz)
+    assert not np.allclose(observation[2], 0)  # buoyancy background is -tanh(...)
+    assert np.all(np.isfinite(observation))
+
 
 def test_reward_taylor_green():
     env = TaylorGreenEnvironment(
@@ -135,8 +171,8 @@ def test_reward_taylor_green():
         diffusivity_rotational=0.0,
     )
     env.flow_velocity = np.array([1.0, 1.0])
-    observation, reward = env.step(action=0)
-    assert_almost_equal(reward, 0.01)
+    _, reward = env.step(action=0)
+    np.testing.assert_almost_equal(reward, 0.01)
 
 
 def test_reward_rayleigh_benard():
@@ -179,3 +215,69 @@ def test_episode_reproducibility():
     assert env._solver.sim_time == env.stop_sim_time
     assert np.allclose(Nu[0], Nu[1])
     assert np.allclose(Re[0], Re[1])
+
+    env = StratifiedShearEnvironment(
+        dt=0.5,
+        stop_sim_time=1.0,
+        nx=32,  # small grid size for faster testing
+        nz=32,
+        save_metrics=True,
+    )  # initialise shear flow environment
+    Ke = []
+    for _ in range(2):
+        _ = env.reset(seed=42)  # deterministic reset
+        while env._solver.sim_time < env.stop_sim_time:
+            print(f"Simulation time: {env._solver.sim_time}")
+            _, _ = env.step(action=_STRATIFIED_SHEAR_ACTION)
+        Ke.append(env.Ke_array[-1])
+
+    assert Ke[0] > 0
+    assert env._solver.sim_time == env.stop_sim_time
+    assert np.allclose(Ke[0], Ke[1])
+
+
+def test_reset_stratified_shear():
+    env = StratifiedShearEnvironment(nx=32, nz=32)
+    env.reset(seed=42)
+
+    # Test that the value of the buoyancy field is as expected
+    assert np.allclose(
+        env.b_initial["g"], -np.tanh(np.sqrt(env._Pr) * env._z), atol=1e-10
+    )
+
+    # Test the persistence of u_initial across reset() and step() functions
+    u_initial = env.u_initial.copy()
+    env.step(action=_STRATIFIED_SHEAR_ACTION)
+    assert np.allclose(u_initial["g"], env.u_initial["g"])
+
+    env.reset(seed=42)
+    env.step(action=_STRATIFIED_SHEAR_ACTION)
+    assert np.allclose(u_initial["g"], env.u_initial["g"])
+
+    # Test that a different seed results in a different initial state
+    env.reset(seed=43)
+    assert not np.allclose(u_initial["g"], env.u_initial["g"])
+
+
+def test_device():
+    # Invalid device raises ValueError
+    with pytest.raises(ValueError):
+        env = StratifiedShearEnvironment(
+            dt=1, stop_sim_time=2, nx=32, nz=32, device="tpu"
+        )
+
+    # GPU without cupy raises ImportError
+    with patch("environments.stratified_shear.cp", None):
+        with pytest.warns(UserWarning, match="not on the main dedalus branch"):
+            with pytest.raises(ImportError, match="cupy is required"):
+                StratifiedShearEnvironment(
+                    dt=1, stop_sim_time=2, nx=32, nz=32, device="gpu"
+                )
+
+    # GPU with cupy issues a warning
+    cp_real = pytest.importorskip("cupy")
+    with patch("environments.stratified_shear.cp", cp_real):
+        with pytest.warns(UserWarning, match="not on the main dedalus branch"):
+            StratifiedShearEnvironment(
+                dt=1, stop_sim_time=2, nx=32, nz=32, device="gpu"
+            )
