@@ -1,7 +1,8 @@
+import gc
 import logging
+import math
 import os
 import warnings
-import math
 
 try:
     import cupy as cp
@@ -229,6 +230,13 @@ class StratifiedShearEnvironment(Environment):
         """Reset the environment to an initial state."""
         logger.info("Resetting the environment")
         self._episode += 1
+
+        # Reset the solver and flow properties for garbage collection
+        self._flow = None
+        self._solver = None
+        gc.collect()
+        if self.device == "gpu":
+            cp.get_default_memory_pool().free_all_blocks()
 
         # Solver
         self._solver = self._problem.build_solver(self._timestepper)
