@@ -52,6 +52,5 @@ def train(
                 print(f"Episode {episode} return: \t {episode_return}")
                 print(f"Policy: \t {np.argmax(agent.q, axis=1)}.")
             elif episode == n_episodes - 1:
-                save_checkpoint(policy=np.argmax(agent.q, axis=1), episode=episode)
                 print(f"Last episode return: \t {episode_return}")
                 print(f"Policy: \t {np.argmax(agent.q, axis=1)}.")
